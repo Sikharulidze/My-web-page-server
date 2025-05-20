@@ -19,7 +19,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Serve React static files from build folder (adjust if your build output folder is different)
-app.use(express.static(path.join(__dirname, "../dist")));
 
 // Read environment variables for DB connection
 const { DB_USER, DB_HOST, DB_DATABASE, DB_PASSWORD, DB_PORT, NODE_ENV } =
@@ -48,7 +47,7 @@ app.get("/posts", async (req, res) => {
   try {
     console.log(DB_HOST);
     const result = await pool.query("SELECT * FROM posts ORDER BY id DESC");
-    console.log(result);
+
     return res.json(result.rows);
   } catch (error) {
     console.error("Error querying posts:", error);
@@ -63,7 +62,7 @@ app.post("/posts", async (req, res) => {
   }
   try {
     const result = await pool.query(
-      "INSERT INTO posts (title, content) VALUES ($1, $2) RETURNING *",
+      "INSERT INTO posts (title, content, created_at) VALUES ($1, $2, NOW()) RETURNING *",
       [title, content]
     );
     res.status(201).json(result.rows[0]);
@@ -73,10 +72,22 @@ app.post("/posts", async (req, res) => {
   }
 });
 
-// Catch-all handler to serve React app for all other routes (client-side routing)
-// app.get("*", (req, res) => {
-  //res.sendFile(path.join(__dirname, "../dist/index.html"));
-// });
+app.delete("/posts/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query("DELETE FROM posts WHERE id = $1", [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    res.status(200).json({ message: "Post deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ error: "Database error" });
+  }
+});
 
 // Start server
 app.listen(port, () => {
